@@ -3,3 +3,14 @@
     cmd: sleep 360
   changed_when: false
   ignore_errors: true
+  register: sleep_result
+  failed_when: sleep_result.rc != 0
+
+- name: Maintain /var/www/html/ansible.htm
+  ansible.builtin.lineinfile:
+    create: true
+    line: "Ansible succeed after SLEEP command!"
+    mode: 0644
+    path: /var/www/html/ansible.htm
+    state: present
+  when: sleep_result is succeeded
