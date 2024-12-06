@@ -1,0 +1,5 @@
+- name: Sleep
+  ansible.builtin.command:
+    cmd: sleep 360
+  changed_when: false
+  ignore_errors: true

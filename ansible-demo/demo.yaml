@@ -1,0 +1,8 @@
+- name: DEMO playbook
+  connection: local
+  gather_facts: false
+  hosts: localhost
+  tasks:
+    - name: DEMO role
+      ansible.builtin.include_role:
+        name: demo

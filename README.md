@@ -2,20 +2,22 @@
 
 ## Dependencies
 
-1. Set AWS authentication creds as your Shell variables
+1. [Setup AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+
+2. Set AWS authentication tokens as your Shell variables
 
     ```bash
-    export export AWS_ACCESS_KEY_ID='<AWS ACCESS ID HERE>'
+    export AWS_ACCESS_KEY_ID='<AWS ACCESS ID HERE>'
     export AWS_SECRET_ACCESS_KEY='<AWS SECRET ACCESS KEY HERE>'
     ```
 
-2. Import SSHkeys you would like to use with AWS EC2 instances
+3. Import SSHkeys you would like to use with AWS EC2 instances
 
     ```bash
     aws ec2 import-key-pair --key-name MyKeyPair --public-key-material "$(cat $HOME/.ssh/${PUBLIC_SSH_KEY_FILENAME}.pub -p | base64 | tr -d '\n')"
     ```
 
-3. Check for the Default VPC ID and Subnet ID you would like to use with this CF template
+4. Check for the Default VPC ID and Subnet ID you would like to use with this CF template
 
     ```bash
     aws ec2 describe-subnets --query "Subnets[*].[SubnetId, VpcId, AvailabilityZone, CidrBlock]" --output table
@@ -31,7 +33,7 @@ aws cloudformation update-stack --stack-name ${STACK_NAME} \n
         ParameterKey=DefaultSubnetID,ParameterValue=${SUBNET_ID} \n
         ParameterKey=ResourceTitleSuffix,ParameterValue=${RESOURCE_TITLE_SUFFIX} \n
     --tags Key=Build,Value=Alpha \n
-    --template-body file://modified-demo-template-init.yaml
+    --template-body file://flat-template.yaml
 ```
 
 Enjoy.
