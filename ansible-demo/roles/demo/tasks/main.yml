@@ -9,8 +9,8 @@
 - name: Maintain /var/www/html/ansible.htm
   ansible.builtin.lineinfile:
     create: true
-    line: "Ansible succeed after SLEEP command!"
+    line: "Ansible-playbook succeeded to run!"
     mode: 0644
-    path: /var/www/html/ansible.htm
+    path: /var/www/html/status.htm
     state: present
   when: sleep_result is succeeded
