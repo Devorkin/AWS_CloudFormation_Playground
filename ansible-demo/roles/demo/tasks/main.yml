@@ -1,6 +1,6 @@
 - name: Sleep
   ansible.builtin.command:
-    cmd: sleep 360
+    cmd: sleep 20
   changed_when: false
   ignore_errors: true
   register: sleep_result
