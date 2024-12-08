@@ -1,0 +1,143 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Demo Init with Cloud using Launch Template and ResourceTitleSuffix
+Parameters:
+  DefaultSubnetID:
+    Type: String
+    Description: Default Subnet ID
+  DefaultVPCID:
+    Type: String
+    Description: Default VPC ID
+  ResourceTitleSuffix:
+    Type: String
+    Description: Suffix to append to resource names.
+Mappings:
+  RegionMap:
+    us-east-1:
+      AMI: "ami-026584067e3942022"
+Resources:
+  ELBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription:
+        Fn::Join:
+          - ""
+          - ["elb-sg-", !Ref ResourceTitleSuffix]
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: "0.0.0.0/0"
+      SecurityGroupIngress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+      VpcId: !Ref DefaultVPCID
+  ELB:
+    Type: AWS::ElasticLoadBalancing::LoadBalancer
+    Properties:
+      ConnectionDrainingPolicy:
+        Enabled: true
+        Timeout: 30
+      CrossZone: true
+      HealthCheck:
+        HealthyThreshold: "2"
+        Interval: "10"
+        Target: HTTP:80/
+        Timeout: "5"
+        UnhealthyThreshold: "2"
+      LoadBalancerName:
+        Fn::Join:
+          - ""
+          - ["elb-", !Ref ResourceTitleSuffix]
+      Listeners:
+        - InstancePort: "80"
+          InstanceProtocol: HTTP
+          LoadBalancerPort: "80"
+          Protocol: HTTP
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref ELBSecurityGroup
+      Subnets:
+        - !Ref DefaultSubnetID
+  EC2SecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription:
+        Fn::Join:
+          - ""
+          - ["ec2-sg-", !Ref ResourceTitleSuffix]
+      SecurityGroupEgress:
+        - IpProtocol: "-1"
+          CidrIp: "0.0.0.0/0"
+      SecurityGroupIngress:
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 22
+          IpProtocol: tcp
+          ToPort: 22
+        - CidrIp: "0.0.0.0/0"
+          FromPort: 80
+          IpProtocol: tcp
+          ToPort: 80
+        - FromPort: 80
+          IpProtocol: tcp
+          SourceSecurityGroupId: !Ref ELBSecurityGroup
+          ToPort: 80
+      VpcId: !Ref DefaultVPCID
+  LaunchTemplate:
+    Type: AWS::EC2::LaunchTemplate
+    Properties:
+      LaunchTemplateName:
+        Fn::Join:
+          - ""
+          - ["DemoLaunchTemplate-", !Ref ResourceTitleSuffix]
+      LaunchTemplateData:
+        InstanceType: t4g.small
+        ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", "AMI"]
+        KeyName: MyKeyPair
+        SecurityGroupIds:
+          - !Ref EC2SecurityGroup
+        UserData:
+          Fn::Base64: !Sub |
+            #!/bin/bash -ex
+            apt update
+            apt install -y ansible apache2 git
+            echo $(hostname -f) > /var/www/html/status.htm
+            echo "Version 0.1 Alpha" >> /var/www/html/status.htm
+            git clone https://github.com/Devorkin/AWS_CloudFormation_Playground.git -b quick
+            sleep 10
+            echo "Awaiting for Ansible run to complete..." >> /var/www/html/status.htm
+            ansible-playbook AWS_CloudFormation_Playground/ansible-demo/demo.yaml
+            echo "Ansible run has been completed!" >> /var/www/html/status.htm
+            /opt/aws/bin/cfn-signal -e 0 --region ${AWS::Region} --stack ${AWS::StackName} --resource AutoScalingGroup
+            echo "Bootstrap has been completed!" >> /var/www/html/status.htm
+  AutoScalingGroup:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    DependsOn: LaunchTemplate
+    Properties:
+      AutoScalingGroupName:
+        Fn::Join:
+          - ""
+          - ["DemoASG-", !Ref ResourceTitleSuffix]
+      MinSize: "1"
+      MaxSize: "2"
+      DesiredCapacity: "2"
+      LaunchTemplate:
+        LaunchTemplateId: !Ref LaunchTemplate
+        Version: !GetAtt [LaunchTemplate, LatestVersionNumber]
+      VPCZoneIdentifier:
+        - !Ref DefaultSubnetID
+      LoadBalancerNames:
+        - !Ref ELB
+      HealthCheckGracePeriod: 600
+      HealthCheckType: ELB
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: 1
+        MaxBatchSize: 1
+        PauseTime: PT1M
+Outputs:
+  ELB:
+    Value:
+      Fn::Join:
+        - ""
+        - ["http://", !GetAtt [ELB, DNSName]]
+    Description: Load Balancer URL
